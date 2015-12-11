@@ -74,10 +74,12 @@ def _wncc_fix_image(image, template_shape):
         nom = image_corr((template - bar_t) * mask)
         denom1 = image2_corr(mask) + bar_f ** 2 * mask.sum() - 2 * bar_f * image_corr_mask
         denom2 = ((template - bar_t) ** 2 * mask).sum()
-        assert denom2 != 0
 
         result = nom / np.sqrt(denom1 * denom2)
-        result[denom1 == 0] = float('nan')
+
+        result[np.abs(denom1) < 1e-15] = float('nan')
+        if np.abs(denom2) < 1e-15:
+            result[...] = float('nan')
 
         return result
 
@@ -90,7 +92,6 @@ def _wncc_fix_template(image_shape, template, mask=None):
     bar_t = (template * mask).sum() / mask.sum()
 
     denom2 = ((template - bar_t) ** 2 * mask).sum()
-    assert denom2 != 0
 
     corr_mask = correlate(image_shape, mask, constant_y=True)
     corr_tmplmask = correlate(image_shape, (template - bar_t) * mask, constant_y=True)
@@ -103,7 +104,10 @@ def _wncc_fix_template(image_shape, template, mask=None):
         denom1 = corr_mask(image ** 2) + bar_f ** 2 * mask.sum() - 2 * bar_f * image_corr_mask
 
         result = nom / np.sqrt(denom1 * denom2)
-        result[denom1 == 0] = float('nan')
+
+        result[np.abs(denom1) < 1e-15] = float('nan')
+        if np.abs(denom2) < 1e-15:
+            result[...] = float('nan')
 
         return result
 
