@@ -2,18 +2,21 @@ import numpy as np
 import hypothesis as h
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as npst
-from wncc import wncc, _wncc_naive
+from wncc import wncc, wncc_prepare, _wncc_naive
 
 
-@h.given(st.tuples(st.integers(1, 10), st.integers(1, 10)),
-         st.tuples(st.integers(1, 10), st.integers(1, 10)))
+@h.given(st.tuples(st.integers(3, 10), st.integers(3, 10)),
+         st.tuples(st.integers(3, 10), st.integers(3, 10)))
 def test_random(shape_image, shape_template):
     image = np.random.rand(*shape_image)
     template = np.random.rand(*shape_template)
     mask = np.random.rand(*shape_template)
     naive_result = _wncc_naive(image, template, mask)
     result = wncc(image, template, mask)
-    assert np.allclose(naive_result, result, atol=1e-3, equal_nan=True)
+
+    h.note(naive_result)
+    h.note(result)
+    assert np.allclose(naive_result, result, atol=1e-2, equal_nan=True)
 
 
 class GenBasic:
@@ -69,4 +72,46 @@ def test_gen_random(image, templatemask):
     naive_finite = naive_result[np.isfinite(naive_result) & np.isfinite(result)]
     res_finite = result[np.isfinite(naive_result) & np.isfinite(result)]
 
-    assert np.allclose(naive_finite, res_finite, atol=1e-3)
+    assert np.allclose(naive_finite, res_finite, atol=1e-2)
+
+
+nparrs = GenBasic.nparrs | GenRandom.nparrs
+nparrs_two = GenBasic.nparrs_two | GenRandom.nparrs_two
+
+
+@h.given(nparrs, nparrs)
+def test_no_mask(image, template):
+    mask = np.ones_like(template)
+    result = wncc(image, template, mask)
+    result_nomask = wncc(image, template)
+
+    h.note(result)
+    h.note(result_nomask)
+
+    np.testing.assert_array_equal(result, result_nomask)
+
+
+@h.given(nparrs, nparrs_two)
+def test_fixed_image(image, templatemask):
+    template, mask = templatemask
+
+    result = wncc(image, template, mask)
+    result_with_fixed = wncc_prepare(image, template.shape)(template, mask)
+
+    h.note(result)
+    h.note(result_with_fixed)
+
+    np.testing.assert_array_equal(result, result_with_fixed)
+
+
+@h.given(nparrs, nparrs_two)
+def test_fixed_template(image, templatemask):
+    template, mask = templatemask
+
+    result = wncc(image, template, mask)
+    result_with_fixed = wncc_prepare(image.shape, template, mask)(image)
+
+    h.note(result)
+    h.note(result_with_fixed)
+
+    np.testing.assert_array_equal(result, result_with_fixed)
