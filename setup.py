@@ -6,7 +6,7 @@ setup(
     packages=['wncc'],
     requires=['numpy', 'planfftw'],
     extras_require={'pyfftw': ['pyfftw']},
-    tests_require=['pytest', 'hypothesis'],
+    tests_require=['pytest', 'hypothesis', 'hypothesis-numpy'],
     url='https://github.com/aplavin/wncc',
     license='MIT',
     author='Alexander Plavin',
