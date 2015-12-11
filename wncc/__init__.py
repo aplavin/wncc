@@ -10,6 +10,30 @@ def _init_mask(template, mask):
 
 
 def wncc(image, template, mask=None):
+    """
+    Computes the Weighted Normalized Cross Correlation.
+
+    :param image: First array - image.
+    :param template: Second array - template.
+    :param mask: Mask containing weights for template pixels. Same size as template.
+    :return: The resulting cross correlation.
+
+    This function returns the result of computing the formulae
+    (here f, t and m denote image, template and mask correspondingly):
+    $$wncc(u, v) = \frac{nom(u, v)}{denom_1(u, v) denom_2(u, v)}$$
+    $$nom(u, v) = \sum [f(x,y) - \bar f(u, v)]  [t(x-u, y-v) - \bar t] m(x-u, y-v)$$
+    $$denom_1(u, v) = \sum [f(x, y) - \bar f(u, v)]^2 m(x-u, y-v)$$
+    $$denom_2(u, v) = \sum [t(x-u, y-v) - \bar t]^2 m(x-u, y-v)$$
+    $$\bar f(u, v) = \frac{\sum f(x, y) m(x-u, y-v)}{\sum m(x, y)}$$
+    $$\bar t = \frac{\sum t(x, y)  m(x, y)}{\sum m(x, y)}.$$
+
+    The computations are done using FFT convolution instead of naive summation,
+    which is possible due to such transformations:
+    $$nom(u, v) = \sum f(x,y) [t(x-u, y-v) - \bar t] m(x-u, y-v)$$
+    $$denom_1(u, v) = \sum [f(x, y)^2 + \bar f(u, v)^2 - 2 f(x, y) \bar f(u, v)] m(x-u, y-v) =$$
+    $$= \sum f(x, y)^2 m(x-u, y-v) + \bar f(u, v)^2 \sum m(x-u, y-v) - 2 \bar f(u, v) \sum f(x, y) m(x-u, y-v)$$
+    $$denom_2(u, v) = \sum [t(x, y) - \bar t]^2 m(x, y).$$
+    """
     mask = _init_mask(template, mask)
 
     image_corr = correlate(image, template.shape, constant_x=True)
@@ -94,3 +118,50 @@ def wncc_prepare(image=None, template=None, mask=None):
         return _wncc_fix_template(image, template, mask)
     else:
         raise ValueError('Neither image nor template are numpy arrays.')
+
+
+def _wncc_naive(f, t, m, return_func=False):
+    """
+    Naive implementation of the following formulae:
+    $$wncc(u, v) = \frac{nom(u, v)}{denom_1(u, v) denom_2(u, v)}$$
+    $$nom(u, v) = \sum [f(x,y) - \bar f(u, v)]  [t(x-u, y-v) - \bar t] m(x-u, y-v)$$
+    $$denom_1(u, v) = \sum [f(x, y) - \bar f(u, v)]^2 m(x-u, y-v)$$
+    $$denom_2(u, v) = \sum [t(x-u, y-v) - \bar t]^2 m(x-u, y-v)$$
+    $$\bar f(u, v) = \frac{\sum f(x, y) m(x-u, y-v)}{\sum m(x, y)}$$
+    $$\bar t = \frac{\sum t(x, y)  m(x, y)}{\sum m(x, y)}$$
+    """
+    assert t.shape == m.shape
+
+    def f_(x, y):
+        if 0 <= x < f.shape[0] and 0 <= y < f.shape[1]:
+            return f[x, y]
+        return 0
+
+    def at(u, v):
+        f_bar = sum(f_(x, y) * m[x - u, y - v]
+                    for x in range(u, u + m.shape[0])
+                    for y in range(v, v + m.shape[1])) \
+                / m.sum()
+        t_bar = sum(t[x, y] * m[x, y]
+                    for x in range(t.shape[0])
+                    for y in range(t.shape[1])) \
+                / m.sum()
+        nom = sum((f_(x, y) - f_bar) * (t[x - u, y - v] - t_bar) * m[x - u, y - v]
+                  for x in range(u, u + m.shape[0])
+                  for y in range(v, v + m.shape[1]))
+        denom_1 = sum((f_(x, y) - f_bar) ** 2 * m[x - u, y - v]
+                      for x in range(u, u + m.shape[0])
+                      for y in range(v, v + m.shape[1]))
+        denom_2 = sum((t[x, y] - t_bar) ** 2 * m[x, y]
+                      for x in range(0, t.shape[0])
+                      for y in range(0, t.shape[1]))
+
+        return nom / (denom_1 * denom_2)
+
+    if return_func:
+        return at
+    else:
+        result = [[at(u, v)
+                   for v in range(-t.shape[1] + 1, f.shape[1])]
+                  for u in range(-t.shape[0] + 1, f.shape[0])]
+        return np.array(result)
