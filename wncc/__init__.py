@@ -20,7 +20,7 @@ def wncc(image, template, mask=None):
 
     This function returns the result of computing the formulae
     (here f, t and m denote image, template and mask correspondingly):
-    $$wncc(u, v) = \frac{nom(u, v)}{denom_1(u, v) denom_2(u, v)}$$
+    $$wncc(u, v) = \frac{nom(u, v)}{\sqrt{denom_1(u, v) denom_2(u, v)}}$$
     $$nom(u, v) = \sum [f(x,y) - \bar f(u, v)]  [t(x-u, y-v) - \bar t] m(x-u, y-v)$$
     $$denom_1(u, v) = \sum [f(x, y) - \bar f(u, v)]^2 m(x-u, y-v)$$
     $$denom_2(u, v) = \sum [t(x-u, y-v) - \bar t]^2 m(x-u, y-v)$$
@@ -49,10 +49,12 @@ def wncc(image, template, mask=None):
     denom1 = image2_corr(mask) + bar_f ** 2 * mask.sum() - 2 * bar_f * image_corr_mask
 
     denom2 = ((template - bar_t) ** 2 * mask).sum()
-    assert denom2 != 0
 
     result = nom / np.sqrt(denom1 * denom2)
-    result[denom1 == 0] = float('nan')
+
+    result[np.abs(denom1) < 1e-15] = float('nan')
+    if np.abs(denom2) < 1e-15:
+        result[...] = float('nan')
 
     return result
 
@@ -123,7 +125,7 @@ def wncc_prepare(image=None, template=None, mask=None):
 def _wncc_naive(f, t, m, return_func=False):
     """
     Naive implementation of the following formulae:
-    $$wncc(u, v) = \frac{nom(u, v)}{denom_1(u, v) denom_2(u, v)}$$
+    $$wncc(u, v) = \frac{nom(u, v)}{\sqrt{denom_1(u, v) denom_2(u, v)}}$$
     $$nom(u, v) = \sum [f(x,y) - \bar f(u, v)]  [t(x-u, y-v) - \bar t] m(x-u, y-v)$$
     $$denom_1(u, v) = \sum [f(x, y) - \bar f(u, v)]^2 m(x-u, y-v)$$
     $$denom_2(u, v) = \sum [t(x-u, y-v) - \bar t]^2 m(x-u, y-v)$$
@@ -155,8 +157,9 @@ def _wncc_naive(f, t, m, return_func=False):
         denom_2 = sum((t[x, y] - t_bar) ** 2 * m[x, y]
                       for x in range(0, t.shape[0])
                       for y in range(0, t.shape[1]))
-
-        return nom / (denom_1 * denom_2)
+        if abs(denom_1) < 1e-15 or abs(denom_2) < 1e-15:
+            return float('nan')
+        return nom / np.sqrt(denom_1 * denom_2)
 
     if return_func:
         return at
