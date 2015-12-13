@@ -1,8 +1,9 @@
-import numpy as np
 import hypothesis as h
+import numpy as np
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as npst
-from wncc import wncc, wncc_prepare, _wncc_naive
+
+from .wncc import wncc, wncc_prepare, _wncc_naive
 
 
 @h.given(st.tuples(st.integers(3, 10), st.integers(3, 10)),
@@ -22,9 +23,9 @@ def test_random(shape_image, shape_template):
 class GenBasic:
     myfloats = st.integers(-20, 20).map(lambda i: i / 2)
     myfloats_pos = st.integers(0, 20).map(lambda i: i / 2)
-    nparrs = st.tuples(st.integers(1, 5), st.integers(1, 5)) \
+    nparrs = st.tuples(st.integers(2, 5), st.integers(2, 5)) \
         .flatmap(lambda shape: npst.arrays(float, shape, GenBasic.myfloats))
-    nparrs_two = st.tuples(st.integers(1, 5), st.integers(1, 5)) \
+    nparrs_two = st.tuples(st.integers(2, 5), st.integers(2, 5)) \
         .flatmap(lambda shape: st.tuples(npst.arrays(float, shape, GenBasic.myfloats),
                                          npst.arrays(float, shape, GenBasic.myfloats_pos)))
 
@@ -44,17 +45,17 @@ def test_gen_basic(image, templatemask):
     res_finite = result[np.isfinite(naive_result)]
     res_infinite = result[~np.isfinite(naive_result)]
 
-    assert np.allclose(naive_finite, res_finite)
+    assert np.allclose(naive_finite, res_finite, atol=1e-4)
     assert np.isnan(naive_infinite).all()
-    assert (np.isnan(res_infinite) | np.isclose(res_infinite, 0, atol=1e-5)).all()
+    assert (np.isnan(res_infinite) | np.isclose(res_infinite, 0, atol=1e-4)).all()
 
 
 class GenRandom:
     myfloats = st.sampled_from((np.random.rand(50) - 0.5) * 20)
     myfloats_pos = st.sampled_from(np.random.rand(50) * 10)
-    nparrs = st.tuples(st.integers(1, 5), st.integers(1, 5)) \
+    nparrs = st.tuples(st.integers(2, 5), st.integers(2, 5)) \
         .flatmap(lambda shape: npst.arrays(float, shape, GenRandom.myfloats))
-    nparrs_two = st.tuples(st.integers(1, 5), st.integers(1, 5)) \
+    nparrs_two = st.tuples(st.integers(2, 5), st.integers(2, 5)) \
         .flatmap(lambda shape: st.tuples(npst.arrays(float, shape, GenRandom.myfloats),
                                          npst.arrays(float, shape, GenRandom.myfloats_pos)))
 
