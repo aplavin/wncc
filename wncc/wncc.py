@@ -1,4 +1,5 @@
 import numpy as np
+import numexpr as ne
 from .convolve import Convolver
 
 
@@ -31,26 +32,29 @@ def wncc(image, template, mask=None, threads=1):
     which is possible due to such transformations:
     $$nom(u, v) = \sum f(x,y) [t(x-u, y-v) - \bar t] m(x-u, y-v)$$
     $$denom_1(u, v) = \sum [f(x, y)^2 + \bar f(u, v)^2 - 2 f(x, y) \bar f(u, v)] m(x-u, y-v) =$$
-    $$= \sum f(x, y)^2 m(x-u, y-v) + \bar f(u, v)^2 \sum m(x-u, y-v) - 2 \bar f(u, v) \sum f(x, y) m(x-u, y-v)$$
+    $$= \sum f(x, y)^2 m(x-u, y-v) + \bar f(u, v)^2 \sum m(x-u, y-v) - 2 \bar f(u, v) \sum f(x, y) m(x-u, y-v) =$$
+    $$= \sum f(x, y)^2 m(x-u, y-v) - \bar f(u, v)^2 \sum m(x, y) =$$
+    $$= \sum f(x, y)^2 m(x-u, y-v) - \frac{\left(\sum f(x, y) m(x-u, y-v)\right)^2}{\sum m(x, y)}$$
     $$denom_2(u, v) = \sum [t(x, y) - \bar t]^2 m(x, y).$$
     """
     mask = _init_mask(template, mask)
 
-    bar_t = (template * mask).sum() / mask.sum()
+    mask_sum = ne.evaluate('sum(mask)')
+    template_mask_sum = ne.evaluate('sum(template * mask)')
+    bar_t = template_mask_sum / mask_sum
 
     convolver = Convolver(image.shape, template.shape, threads=threads, dtype=image.dtype)
     convolver.add_array('image', image)
-    convolver.add_array('image_sq', image ** 2)
+    convolver.add_array('image_sq', ne.evaluate('image ** 2'))
     convolver.add_array('mask', mask)
-    convolver.add_array('tmpl_mask', (template - bar_t) * mask)
+    convolver.add_array('tmpl_mask', ne.evaluate('(template - bar_t) * mask'))
 
-    image_corr_mask = convolver.correlate('image', 'mask')
-    bar_f = image_corr_mask / mask.sum()
     nom = convolver.correlate('image', 'tmpl_mask')
-    denom1 = convolver.correlate('image_sq', 'mask') + bar_f ** 2 * mask.sum() - 2 * bar_f * image_corr_mask
-    denom2 = ((template - bar_t) ** 2 * mask).sum()
+    denom1 = ne.evaluate('a - b**2 / mask_sum', global_dict={'a': convolver.correlate('image_sq', 'mask'),
+                                                             'b': convolver.correlate('image', 'mask')})
+    denom2 = ne.evaluate('sum((template - bar_t) ** 2 * mask)')
 
-    result = nom / np.sqrt(denom1 * denom2)
+    result = ne.evaluate('nom / sqrt(denom1 * denom2)')
 
     result[np.abs(denom1) < 1e-15] = float('nan')
     if np.abs(denom2) < 1e-15:
@@ -62,22 +66,24 @@ def wncc(image, template, mask=None, threads=1):
 def _wncc_fix_image(image, template_shape, threads=1):
     convolver = Convolver(image.shape, template_shape, threads=threads, dtype=image.dtype)
     convolver.add_array('image', image)
-    convolver.add_array('image_sq', image ** 2)
+    convolver.add_array('image_sq', ne.evaluate('image ** 2'))
 
     def ncc_fixed_image(template, mask=None):
         mask = _init_mask(template, mask)
 
-        bar_t = (template * mask).sum() / mask.sum()
+        mask_sum = ne.evaluate('sum(mask)')
+        template_mask_sum = ne.evaluate('sum(template * mask)')
+        bar_t = template_mask_sum / mask_sum
+
         convolver.add_array('mask', mask)
-        convolver.add_array('tmpl_mask', (template - bar_t) * mask)
+        convolver.add_array('tmpl_mask', ne.evaluate('(template - bar_t) * mask'))
 
-        image_corr_mask = convolver.correlate('image', 'mask')
-        bar_f = image_corr_mask / mask.sum()
         nom = convolver.correlate('image', 'tmpl_mask')
-        denom1 = convolver.correlate('image_sq', 'mask') + bar_f ** 2 * mask.sum() - 2 * bar_f * image_corr_mask
-        denom2 = ((template - bar_t) ** 2 * mask).sum()
+        denom1 = ne.evaluate('a - b**2 / mask_sum', global_dict={'a': convolver.correlate('image_sq', 'mask'),
+                                                                 'b': convolver.correlate('image', 'mask')})
+        denom2 = ne.evaluate('sum((template - bar_t) ** 2 * mask)')
 
-        result = nom / np.sqrt(denom1 * denom2)
+        result = ne.evaluate('nom / sqrt(denom1 * denom2)')
 
         result[np.abs(denom1) < 1e-15] = float('nan')
         if np.abs(denom2) < 1e-15:
@@ -91,24 +97,26 @@ def _wncc_fix_image(image, template_shape, threads=1):
 def _wncc_fix_template(image_shape, template, mask=None, threads=1):
     mask = _init_mask(template, mask)
 
-    bar_t = (template * mask).sum() / mask.sum()
+    mask_sum = ne.evaluate('sum(mask)')
+    template_mask_sum = ne.evaluate('sum(template * mask)')
+    bar_t = template_mask_sum / mask_sum
 
-    denom2 = ((template - bar_t) ** 2 * mask).sum()
+    denom2 = ne.evaluate('sum((template - bar_t) ** 2 * mask)')
 
     convolver = Convolver(image_shape, template.shape, threads=threads, dtype=template.dtype)
     convolver.add_array('mask', mask)
-    convolver.add_array('tmpl_mask', (template - bar_t) * mask)
+    convolver.add_array('tmpl_mask', ne.evaluate('(template - bar_t) * mask'))
 
     def ncc_fixed_template(image):
         convolver.add_array('image', image)
-        convolver.add_array('image_sq', image ** 2)
+        convolver.add_array('image_sq', ne.evaluate('image ** 2'))
 
-        image_corr_mask = convolver.correlate('image', 'mask')
-        bar_f = image_corr_mask / mask.sum()
         nom = convolver.correlate('image', 'tmpl_mask')
-        denom1 = convolver.correlate('image_sq', 'mask') + bar_f ** 2 * mask.sum() - 2 * bar_f * image_corr_mask
+        denom1 = ne.evaluate('a - b**2 / mask_sum', global_dict={'a': convolver.correlate('image_sq', 'mask'),
+                                                                 'b': convolver.correlate('image', 'mask'),
+                                                                 'mask_sum': mask_sum})
 
-        result = nom / np.sqrt(denom1 * denom2)
+        result = ne.evaluate('nom / sqrt(denom1 * denom2)')
 
         result[np.abs(denom1) < 1e-15] = float('nan')
         if np.abs(denom2) < 1e-15:

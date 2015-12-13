@@ -1,8 +1,8 @@
 import hypothesis as h
 import numpy as np
+import pytest as pytest
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as npst
-
 from .wncc import wncc, wncc_prepare, _wncc_naive
 
 
@@ -116,3 +116,24 @@ def test_fixed_template(image, templatemask):
     h.note(result_with_fixed)
 
     np.testing.assert_array_equal(result, result_with_fixed)
+
+
+@pytest.mark.parametrize('size', [32])
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('threads', [1])
+def test_benchmark(benchmark, size, dtype, threads):
+    a = np.random.rand(size, size).astype(dtype)
+    b = np.random.rand(size, size).astype(dtype)
+    c = np.random.rand(size, size).astype(dtype)
+    wncc(a, b, c, threads)
+    benchmark(wncc, a, b, c, threads)
+
+
+@pytest.mark.parametrize('size', [512, 1024])
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('threads', [1, 4])
+def test_benchmark_large(benchmark, size, dtype, threads):
+    a = np.random.rand(size, size).astype(dtype)
+    b = np.random.rand(size, size).astype(dtype)
+    c = np.random.rand(size, size).astype(dtype)
+    benchmark(wncc, a, b, c, threads)

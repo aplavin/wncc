@@ -81,7 +81,7 @@ class Convolver:
     def _fft(self, name, reverse):
         key = (name, reverse)
         if key not in self.ffts:
-            self.ffts[key] = self.fftw(self.arrays[name][0], reverse)
+            self.ffts[key] = self.fftw(self.arrays[name][0], reverse).copy()
             self.arrays[name][1][0].append(key)
         return self.ffts[key]
 
