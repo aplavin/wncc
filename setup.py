@@ -2,9 +2,9 @@ from distutils.core import setup
 
 setup(
     name='wncc',
-    version='1.2',
+    version='1.2.1',
     packages=['wncc'],
-    requires=['numpy', 'pyfftw', 'numexpr'],
+    install_requires=['numpy', 'pyfftw', 'numexpr'],
     tests_require=['pytest', 'pytest-benchmark', 'hypothesis', 'hypothesis-numpy', 'scipy'],
     url='https://github.com/aplavin/wncc',
     license='MIT',
