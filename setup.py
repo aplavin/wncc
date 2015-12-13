@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='wncc',
-    version='1.0',
+    version='1.1',
     packages=['wncc'],
     requires=['numpy', 'pyfftw'],
     tests_require=['pytest', 'hypothesis', 'hypothesis-numpy', 'scipy'],
