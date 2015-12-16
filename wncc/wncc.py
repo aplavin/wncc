@@ -127,14 +127,14 @@ def _wncc_fix_template(image_shape, template, mask=None, threads=1):
     return ncc_fixed_template
 
 
-def wncc_prepare(image=None, template=None, mask=None):
+def wncc_prepare(image=None, template=None, mask=None, threads=1):
     if isinstance(image, np.ndarray):
         assert mask is None
         assert isinstance(template, tuple)
-        return _wncc_fix_image(image, template)
+        return _wncc_fix_image(image, template, threads=threads)
     elif isinstance(template, np.ndarray):
         assert isinstance(image, tuple)
-        return _wncc_fix_template(image, template, mask)
+        return _wncc_fix_template(image, template, mask, threads=threads)
     else:
         raise ValueError('Neither image nor template are numpy arrays.')
 
