@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='wncc',
-    version='1.2.2',
+    version='1.2.3',
     packages=['wncc'],
     install_requires=['numpy', 'pyfftw', 'numexpr'],
     tests_require=['pytest', 'pytest-benchmark', 'hypothesis', 'hypothesis-numpy', 'scipy'],
@@ -10,7 +10,7 @@ setup(
     license='MIT',
     author='Alexander Plavin',
     author_email='alexander@plav.in',
-    description='Weighted normalized cross-correlation.',
+    description='Weighted and masked normalized cross-correlation.',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
