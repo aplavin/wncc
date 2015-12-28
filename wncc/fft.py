@@ -20,8 +20,7 @@ class FFTW:
 
     def __call__(self, arr, reverse=False):
         step = -1 if reverse else 1
-        self.arr_in[arr.shape[0]:, arr.shape[1]:] = 0
-        self.arr_in[arr.shape[0]:, :arr.shape[1]] = 0
+        self.arr_in[arr.shape[0]:, :] = 0
         self.arr_in[:arr.shape[0], arr.shape[1]:] = 0
         self.arr_in[:arr.shape[0], :arr.shape[1]] = arr[::step, ::step]
         ret = self.fftw()
