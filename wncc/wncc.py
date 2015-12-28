@@ -185,3 +185,13 @@ def _wncc_naive(f, t, m, return_func=False):
                    for v in range(-t.shape[1] + 1, f.shape[1])]
                   for u in range(-t.shape[0] + 1, f.shape[0])]
         return np.array(result)
+
+
+def wncc_zero_ix(template_shape):
+    """
+    Get the index of the wncc array element corresponding to zero shift.
+
+    :param template_shape
+    :return: The index as a 2-element array.
+    """
+    return np.array(template_shape) - 1
